@@ -1,0 +1,178 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app');
+var debug = require('debug')('drawing:server');
+var http = require('http');
+var socketIo = require('socket.io');
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+var io = socketIo.listen(server);
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+// array of all lines drawn
+var line_history = [];
+var players = []; // player: username, socketId, status
+var rooms = []; // room: players[], Id, channelId, status, word1, word2, spy, currentTurn, turnOrder, numOfPlayers
+
+
+
+// event-handler for new incoming connections
+io.on('connection', function (socket) {
+    //console.log(socket.io.engine.id);
+    console.log(socket.id);
+    // first send the history to the new client
+    // NOTE not effective as it will emit every line separately-
+    // -instead of sending the whole array once.
+    for (var i in line_history) {
+        socket.emit('draw_line', { line: line_history[i] } );
+    }
+
+    // add handler for message type "draw_line".
+    socket.on('draw_line', function (data) {
+        // add received line to history
+        line_history.push(data.line);
+        // send line to all clients
+        io.emit('draw_line', { line: data.line });
+    });
+
+    socket.on('login', function (data) {
+
+        player.username = data.username;
+        player.socketId = socket.id;
+        player.status = "logged in";
+        players.push(player);
+
+        io.emit('logged_in_succ');
+    });
+
+    socket.on('find_room', function (data) {
+        room = findAndJoinRoom(data); // returns room object
+        io.emit('joined_room', { room: room });
+    });
+
+    socket.on('start_game', function (data) {
+        // Artists shouldn't know the other word!
+        data.room.status = "started";
+        data.room.word2 = "Spy";
+        word2 = data.room.word2; // copy word2 so we can reset it after nullifying it.
+        data.room.turn = 0; // first player turn; check
+        //data.room.players = shuffle(data.room.players); // to define turn order
+
+        // getting The Spy and sending him a message
+        spyIndex = getRandomInt(0,data.room.players.length);
+        spySocketId = data.room.players[spyIndex].socketId;
+        socket.broadcast.to(spySocketId).emit('you_are_spy', { room: data.room });
+
+        // setting the word and sending it to The Artists
+        data.room.word2 = "unknown";
+        data.room.word1 = "Apple"; // getRandomWord()/getRandom3Words()
+        //Sending the actual word to the Artists
+        for(i=0;i<data.room.players.length;i++) {
+            if(i==spyIndex)
+                continue;
+            artistSocketId = data.room.players[i].socketId;
+            socket.broadcast.to(artistSocketId).emit('you_are_artist', { room: data.room });
+        }
+        data.room.word2 = word2;
+        rooms.push(data.room);
+    });
+
+    socket.on('end_my_turn', function (data) {
+        // add validation
+
+
+    });
+
+
+});
+
+
+/**
+ * My Functions
+ */
+
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}
