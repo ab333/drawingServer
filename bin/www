@@ -35,7 +35,8 @@ server.on('listening', onListening);
 var line_history = [];
 var players = []; // player: username, socketId, status
 var rooms = []; // room: players[], Id, channelId, status, word1, word2, spy, currentTurn, turnOrder, numOfPlayers
-
+var room = new Room("sd");
+room.getInfo();
 
 
 // event-handler for new incoming connections
@@ -117,6 +118,31 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function Player (username, socketId) {
+    this.username = username;
+    this.socketId = socketId;
+}
+
+Player.prototype.getInfo = function() {
+    return this.username + ' ' + this.socketId + ' apple';
+};
+
+function Room (Id) {
+    this.players = [];
+    this.Id = Id;
+    this.channelId = "";
+    this.status = "";
+    this.word1 = "";
+    this.word2 = "";
+    this.spy = "";
+    this.currentTurn = "";
+    this.numOfPlayers = "";
+    this.turnOrder = "";
+}
+
+Room.prototype.getInfo = function() {
+    return this.Id + ' ' + this.Id + ' apple';
+};
 /**
  * Normalize a port into a number, string, or false.
  */
