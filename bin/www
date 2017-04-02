@@ -32,11 +32,10 @@ server.on('error', onError);
 server.on('listening', onListening);
 
 // array of all lines drawn
-var line_history = [];
-var players = []; // player: username, socketId, status
-var rooms = []; // room: players[], Id, channelId, status, word1, word2, spy, currentTurn, turnOrder, numOfPlayers
-var room = new Room("sd");
-room.getInfo();
+var lineHistory = new Array();
+var players = new Array(); // player: username, socketId, status, currentRoom
+var rooms = new Array(); // room: players[], Id, channelId, status, word1, word2, spy, currentTurn, turnOrder, numOfPlayers, lineHistory
+
 
 
 // event-handler for new incoming connections
@@ -46,30 +45,27 @@ io.on('connection', function (socket) {
     // first send the history to the new client
     // NOTE not effective as it will emit every line separately-
     // -instead of sending the whole array once.
-    for (var i in line_history) {
-        socket.emit('draw_line', { line: line_history[i] } );
+    for (var i in lineHistory) {
+        socket.emit('draw_line', { line: lineHistory[i] } );
     }
 
     // add handler for message type "draw_line".
     socket.on('draw_line', function (data) {
         // add received line to history
-        line_history.push(data.line);
+        lineHistory.push(data.line);
         // send line to all clients
         io.emit('draw_line', { line: data.line });
     });
 
-    socket.on('login', function (data) {
-
-        player.username = data.username;
-        player.socketId = socket.id;
+    socket.on('login', function (username) {
+        player = new Player(username, socket.id);
         player.status = "logged in";
         players.push(player);
-
         io.emit('logged_in_succ');
     });
-
-    socket.on('find_room', function (data) {
-        room = findAndJoinRoom(data); // returns room object
+    //
+    socket.on('find_room', function (criteria) {
+        room = findAndJoinRoom(criteria); // returns Room object
         io.emit('joined_room', { room: room });
     });
 
@@ -118,9 +114,29 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function findAndJoinRoom(criteria, playerIndex) {
+    //TODO
+    var result = rooms.filter(function( obj ) {
+        return obj.status == "open" && obj.type == "public";
+    });
+    if(result.length == 0) {
+        //TODO
+        // create room
+        room = new Room(getRandomInt(1,10000));
+        room.players.push()
+    }
+    else {
+        //access result[0]
+        room = result[0];
+
+    }
+    return room;
+}
+
 function Player (username, socketId) {
     this.username = username;
     this.socketId = socketId;
+    this.currentRoom = "";
 }
 
 Player.prototype.getInfo = function() {
@@ -129,9 +145,11 @@ Player.prototype.getInfo = function() {
 
 function Room (Id) {
     this.players = [];
+    this.lineHistory = [];
     this.Id = Id;
     this.channelId = "";
-    this.status = "";
+    this.status = "open";
+    this.type = "public";
     this.word1 = "";
     this.word2 = "";
     this.spy = "";
@@ -143,6 +161,15 @@ function Room (Id) {
 Room.prototype.getInfo = function() {
     return this.Id + ' ' + this.Id + ' apple';
 };
+
+function LineHistory() {
+    this.line;
+}
+
+function Line() {
+    this.x;
+    this.y;
+}
 /**
  * Normalize a port into a number, string, or false.
  */

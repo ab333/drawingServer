@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", function() {
+    console.log("sdf");
     var mouse = {
         click: false,
         move: false,
