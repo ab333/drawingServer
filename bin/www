@@ -114,7 +114,7 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function findAndJoinRoom(criteria, playerIndex) {
+function findAndJoinRoom(socket, criteria, playerIndex) {
     var result = rooms.filter(function( obj ) {
         return obj.status == "open" && obj.type == "public";
     });
@@ -122,12 +122,14 @@ function findAndJoinRoom(criteria, playerIndex) {
         room = new Room(getRandomInt(1,10000));
         room.players.push(players[playerIndex]);
         room.numOfPlayers = 1;
-        //TODO add room in socket and join player
+        socket.join(room.Id);
     }
     else {
         //access result[0]
         room = result[0];
-
+        room.players.push(players[playerIndex]);
+        room.numOfPlayers++;
+        socket.join(room.Id);
     }
     return room;
 }
@@ -145,8 +147,8 @@ Player.prototype.getInfo = function() {
 function Room (Id) {
     this.players = [];
     this.lineHistory = [];
-    this.Id = Id;
-    this.channelId = "";
+    this.Id = Id; // same as channelId
+    this.channelId = ""; // not used
     this.status = "open"; //open, word_choosing, running, finished
     this.type = "public"; //public, private
     this.word1 = "";
