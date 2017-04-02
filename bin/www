@@ -8,6 +8,7 @@ var app = require('../app');
 var debug = require('debug')('drawing:server');
 var http = require('http');
 var socketIo = require('socket.io');
+var fs = require('fs'); // File system
 
 /**
  * Get port from environment and store in Express.
@@ -35,26 +36,37 @@ server.on('listening', onListening);
 var lineHistory = new Array();
 var players = new Array(); // player: username, socketId, status, currentRoom
 var rooms = new Array(); // room: players[], Id, channelId, status, word1, word2, spy, currentTurn, turnOrder, numOfPlayers, lineHistory
-
-
-
+var wordsPath = "words_list_EN.txt";
+var words = fs.readFileSync(wordsPath).toString().split('\n');
+rooms.push(new Room(0));
 // event-handler for new incoming connections
 io.on('connection', function (socket) {
     //console.log(socket.io.engine.id);
     console.log(socket.id);
+    console.log(getRandomWord());
+    socket.join("0");
     // first send the history to the new client
     // NOTE not effective as it will emit every line separately-
     // -instead of sending the whole array once.
-    for (var i in lineHistory) {
-        socket.emit('draw_line', { line: lineHistory[i] } );
-    }
+
+    /*for (var i in lineHistory) {
+     socket.emit('draw_line', { line: lineHistory[i] } );
+     }*/
 
     // add handler for message type "draw_line".
     socket.on('draw_line', function (data) {
+        //find room index
+        /*indexes = rooms.map(function(obj, index) {
+            if(obj.Id == data.room.Id) {
+                return index;
+            }
+        }).filter(isFinite);
+        roomIndex = indexes[0];*/
         // add received line to history
-        lineHistory.push(data.line);
-        // send line to all clients
-        io.emit('draw_line', { line: data.line });
+        // verify if sender is the current turn player
+        rooms[0].lineHistory.push(data.line); //TODO
+        // send line to room
+        io.sockets.in("0").emit('draw_line', { line: data.line });
     });
 
     socket.on('login', function (username) {
@@ -64,8 +76,10 @@ io.on('connection', function (socket) {
         io.emit('logged_in_succ');
     });
     //
-    socket.on('find_room', function (criteria) {
-        room = findAndJoinRoom(criteria); // returns Room object
+    socket.on('find_room', function (data) {
+        //TODO player index etc.
+        player = data.player;
+        room = findAndJoinRoom(socket, data.criteria, player.index); // returns Room object
         io.emit('joined_room', { room: room });
     });
 
@@ -84,7 +98,7 @@ io.on('connection', function (socket) {
 
         // setting the word and sending it to The Artists
         data.room.word2 = "unknown";
-        data.room.word1 = "Apple"; // getRandomWord()/getRandom3Words()
+        data.room.word1 = getRandomWord();
         //Sending the actual word to the Artists
         for(i=0;i<data.room.players.length;i++) {
             if(i==spyIndex)
@@ -97,9 +111,11 @@ io.on('connection', function (socket) {
     });
 
     socket.on('end_my_turn', function (data) {
-        // add validation
-
-
+        //many verification needed!
+        room = data.room;
+        player = data.player;
+        room.currentTurn = ( room.currentTurn + 1 ) % room.players.length;
+        socket.broadcast.to(room.Id).emit('proceed_to_next_turn');
     });
 
 
@@ -114,7 +130,13 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function getRandomWord() {
+    wordIndex = getRandomInt(0, words.length);
+    return words[wordIndex];
+}
+
 function findAndJoinRoom(socket, criteria, playerIndex) {
+    //TODO must get room index instead of value
     var result = rooms.filter(function( obj ) {
         return obj.status == "open" && obj.type == "public";
     });
@@ -128,6 +150,7 @@ function findAndJoinRoom(socket, criteria, playerIndex) {
         //access result[0]
         room = result[0];
         room.players.push(players[playerIndex]);
+        //add numOfPlayers limit
         room.numOfPlayers++;
         socket.join(room.Id);
     }
@@ -138,6 +161,7 @@ function Player (username, socketId) {
     this.username = username;
     this.socketId = socketId;
     this.currentRoom = "";
+    this.index = "";
 }
 
 Player.prototype.getInfo = function() {
