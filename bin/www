@@ -115,15 +115,14 @@ function getRandomInt(min, max) {
 }
 
 function findAndJoinRoom(criteria, playerIndex) {
-    //TODO
     var result = rooms.filter(function( obj ) {
         return obj.status == "open" && obj.type == "public";
     });
     if(result.length == 0) {
-        //TODO
-        // create room
         room = new Room(getRandomInt(1,10000));
-        room.players.push()
+        room.players.push(players[playerIndex]);
+        room.numOfPlayers = 1;
+        //TODO add room in socket and join player
     }
     else {
         //access result[0]
@@ -148,14 +147,15 @@ function Room (Id) {
     this.lineHistory = [];
     this.Id = Id;
     this.channelId = "";
-    this.status = "open";
-    this.type = "public";
+    this.status = "open"; //open, word_choosing, running, finished
+    this.type = "public"; //public, private
     this.word1 = "";
     this.word2 = "";
-    this.spy = "";
+    this.spyPlayerIndex = "";
     this.currentTurn = "";
     this.numOfPlayers = "";
     this.turnOrder = "";
+    this.scoreLimit = "";
 }
 
 Room.prototype.getInfo = function() {
