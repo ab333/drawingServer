@@ -115,7 +115,7 @@ io.on('connection', function (socket) {
         room = data.room;
         player = data.player;
         room.currentTurn = ( room.currentTurn + 1 ) % room.players.length;
-        socket.broadcast.to(room.Id).emit('proceed_to_next_turn');
+        socket.broadcast.to(room.id).emit('proceed_to_next_turn');
     });
 
 
@@ -135,27 +135,79 @@ function getRandomWord() {
     return words[wordIndex];
 }
 
-function findAndJoinRoom(socket, criteria, playerIndex) {
+function findAndJoinRoom(socket, criteria, username) {
     //TODO must get room index instead of value
+    player = getPlayerByUsername(username);
     var result = rooms.filter(function( obj ) {
         return obj.status == "open" && obj.type == "public";
     });
     if(result.length == 0) {
         room = new Room(getRandomInt(1,10000));
-        room.players.push(players[playerIndex]);
+        room.players.push(player);
         room.numOfPlayers = 1;
-        socket.join(room.Id);
+        socket.join(room.id);
     }
     else {
         //access result[0]
         room = result[0];
-        room.players.push(players[playerIndex]);
+        room.players.push(player);
         //add numOfPlayers limit
         room.numOfPlayers++;
-        socket.join(room.Id);
+        socket.join(room.id);
     }
     return room;
 }
+
+function getPlayerByUsername(username) {
+    var result = players.filter(function( player ) {
+        return player.username == username;
+    });
+    if(result.length == 0)
+        return null;
+    else if(result.length == 1)
+        return result[0];
+    else
+        return null; //users with the same username
+
+}
+
+function getPlayerBySocketId(socketId) {
+    var result = players.filter(function( player ) {
+        return player.socketId == socketId;
+    });
+    if(result.length == 0)
+        return null;
+    else if(result.length == 1)
+        return resutl[0];
+    else
+        return null;
+}
+
+function getRoomBySocketId(socketId) {
+    var result = rooms.filter(function( room ) {
+        return room.id == socketId;
+    });
+    if(result.length == 0)
+        return null;
+    else if(result.length == 1)
+        return resutl[0];
+    else
+        return null;
+}
+
+function verifyUsernameSocketOwner() {
+
+}
+
+function verifyUsernameInRoom() {
+
+}
+
+function verifyUsernameCurrentTurn() {
+
+}
+
+
 
 function Player (username, socketId) {
     this.username = username;
@@ -168,10 +220,10 @@ Player.prototype.getInfo = function() {
     return this.username + ' ' + this.socketId + ' apple';
 };
 
-function Room (Id) {
+function Room (id) {
     this.players = [];
     this.lineHistory = [];
-    this.Id = Id; // same as channelId
+    this.id = id; // same as channelId
     this.channelId = ""; // not used
     this.status = "open"; //open, word_choosing, running, finished
     this.type = "public"; //public, private
@@ -185,7 +237,7 @@ function Room (Id) {
 }
 
 Room.prototype.getInfo = function() {
-    return this.Id + ' ' + this.Id + ' apple';
+    return this.id + ' ' + this.id + ' apple';
 };
 
 function LineHistory() {

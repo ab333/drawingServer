@@ -12,7 +12,7 @@ Player.prototype.getInfo = function() {
 
 function Room (Id) {
     this.players = [];
-    this.Id = Id;
+    this.id = Id;
     this.channelId = "";
     this.status = "";
     this.word1 = "";
@@ -24,6 +24,6 @@ function Room (Id) {
 }
 
 Room.prototype.getInfo = function() {
-    return this.Id + ' ' + this.Id + ' apple';
+    return this.id + ' ' + this.id + ' apple';
 };
 
