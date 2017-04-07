@@ -171,6 +171,18 @@ function getPlayerByUsername(username) {
 
 }
 
+function getRoomByRoomId(roomId) {
+    var result = rooms.filter(function( room ) {
+        return room.id == roomId;
+    });
+    if(result.length == 0)
+        return null;
+    else if(result.length == 1)
+        return resutl[0];
+    else
+        return null;
+}
+
 function getPlayerBySocketId(socketId) {
     var result = players.filter(function( player ) {
         return player.socketId == socketId;
@@ -195,16 +207,39 @@ function getRoomBySocketId(socketId) {
         return null;
 }
 
-function verifyUsernameSocketOwner() {
-
+function verifyUsernameSocketOwner(username, socket) {
+    var result = players.filter(function( player ) {
+        return player.socketId == socket.id && player.username == username;
+    });
+    if(result.length == 0)
+        return false;
+    else if(result.length == 1)
+        return true;
+    else
+        return true; // I don't know if this will ever get fired
 }
 
-function verifyUsernameInRoom() {
-
+function verifyUsernameInRoom(username, roomId) {
+    room = getRoomBySocketId();
+    var result = room.players.filter(function( player ) {
+        return player.username == username;
+    });
+    if(result.length == 0)
+        return false;
+    else if(result.length == 1)
+        return true;
+    else
+        return true; // I don't know if this will ever get fired
 }
 
-function verifyUsernameCurrentTurn() {
-
+function verifyUsernameCurrentTurn(username, roomId) {
+    room = getRoomByRoomId(roomId);
+    if(room == null)
+        return null; // no such room
+    if(room.getCurrentTurnUsername() == username)
+        return true;
+    else
+        return false;
 }
 
 
@@ -212,7 +247,7 @@ function verifyUsernameCurrentTurn() {
 function Player (username, socketId) {
     this.username = username;
     this.socketId = socketId;
-    this.currentRoom = "";
+    this.currentRoom = 0;
     this.index = "";
 }
 
@@ -236,8 +271,8 @@ function Room (id) {
     this.scoreLimit = "";
 }
 
-Room.prototype.getInfo = function() {
-    return this.id + ' ' + this.id + ' apple';
+Room.prototype.getCurrentTurnUsername = function() {
+    return this.players[this.currentTurn].username;
 };
 
 function LineHistory() {
