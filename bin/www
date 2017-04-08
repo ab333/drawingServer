@@ -45,6 +45,7 @@ io.on('connection', function (socket) {
     console.log(socket.id);
     console.log(getRandomWord());
     socket.join("0");
+    socket.username = 'd7oome';
     // first send the history to the new client
     // NOTE not effective as it will emit every line separately-
     // -instead of sending the whole array once.
@@ -67,12 +68,20 @@ io.on('connection', function (socket) {
         rooms[0].lineHistory.push(data.line); //TODO
         // send line to room
         io.sockets.in("0").emit('draw_line', { line: data.line });
+        console.log(Object.keys(io.sockets.sockets)); // get all socket Ids in all rooms
+        console.log(socket.username);
+        console.log( findClientsSocketByRoomId('0'));// doesn't work
+        //console.log(Object.keys(io.sockets.adapter.rooms['1'].sockets));
+        var clients = io.sockets.adapter.rooms['Room Name'].sockets;
+        //console.log(Object.keys( io.sockets.adapter.sids[socket.id] )); //get rooms which socket is currently in
+        //console.log(Object.keys( socket.rooms )); //get rooms which socket is currently in
     });
 
     socket.on('login', function (username) {
         player = new Player(username, socket.id);
         player.status = "logged in";
         players.push(player);
+        socket.set('username', username);
         io.emit('logged_in_succ');
     });
     //
@@ -282,6 +291,17 @@ function LineHistory() {
 function Line() {
     this.x;
     this.y;
+}
+
+function findClientsSocketByRoomId(roomId) {
+    var res = []
+        , room = io.sockets.adapter.rooms[roomId];
+    if (room) {
+        for (var id in room) {
+            res.push(io.sockets.adapter.nsp.connected[id]);
+        }
+    }
+    return res;
 }
 /**
  * Normalize a port into a number, string, or false.
