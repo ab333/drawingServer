@@ -42,8 +42,8 @@ rooms.push(new Room(0));
 // event-handler for new incoming connections
 io.on('connection', function (socket) {
     //console.log(socket.io.engine.id);
-    console.log(socket.id);
-    console.log(getRandomWord());
+    console.log("new connection. socket Id : " + socket.id);
+    //console.log(getRandomWord());
     socket.join("0");
     socket.username = 'd7oome';
     // first send the history to the new client
@@ -68,11 +68,11 @@ io.on('connection', function (socket) {
         rooms[0].lineHistory.push(data.line); //TODO
         // send line to room
         io.sockets.in("0").emit('draw_line', { line: data.line });
-        console.log(Object.keys(io.sockets.sockets)); // get all socket Ids in all rooms
-        console.log(socket.username);
-        console.log( findClientsSocketByRoomId('0'));// doesn't work
+        //console.log(Object.keys(io.sockets.sockets)); // get all socket Ids in all rooms
+        //console.log(socket.username);
+        //console.log( findClientsSocketByRoomId('0'));// doesn't work
         //console.log(Object.keys(io.sockets.adapter.rooms['1'].sockets));
-        var clients = io.sockets.adapter.rooms['Room Name'].sockets;
+        //var clients = io.sockets.adapter.rooms['Room Name'].sockets;
         //console.log(Object.keys( io.sockets.adapter.sids[socket.id] )); //get rooms which socket is currently in
         //console.log(Object.keys( socket.rooms )); //get rooms which socket is currently in
     });
@@ -81,15 +81,19 @@ io.on('connection', function (socket) {
         player = new Player(username, socket.id);
         player.status = "logged in";
         players.push(player);
-        socket.set('username', username);
+        console.log(players);
         io.emit('logged_in_succ');
     });
     //
     socket.on('find_room', function (data) {
         //TODO player index etc.
-        player = data.player;
-        room = findAndJoinRoom(socket, data.criteria, player.index); // returns Room object
+        username = data.username;
+        criteria = data.criteria;
+        room = findAndJoinRoom(socket, criteria, username); // returns Room object
         io.emit('joined_room', { room: room });
+        console.log("joined room" + room);
+        console.log(rooms);
+
     });
 
     socket.on('start_game', function (data) {
@@ -155,6 +159,7 @@ function findAndJoinRoom(socket, criteria, username) {
         room.players.push(player);
         room.numOfPlayers = 1;
         socket.join(room.id);
+
     }
     else {
         //access result[0]
@@ -163,7 +168,10 @@ function findAndJoinRoom(socket, criteria, username) {
         //add numOfPlayers limit
         room.numOfPlayers++;
         socket.join(room.id);
+
     }
+    player.currentRoom = room.id;
+    player.status = "in a room";
     return room;
 }
 
@@ -258,6 +266,7 @@ function Player (username, socketId) {
     this.socketId = socketId;
     this.currentRoom = 0;
     this.index = "";
+    this.status = "";
 }
 
 Player.prototype.getInfo = function() {

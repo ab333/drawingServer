@@ -6,6 +6,8 @@
     <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
     <script>
         $(document).ready(function() {
+            var username;
+            $("#find_room_block").hide();
             var socket  = io.connect();
             $("#form").submit(function (event) {
                 username = $("#username").val();
@@ -14,12 +16,16 @@
             });
             socket.on('logged_in_succ', function () {
                 console.log("logged!");
-                $("body").html("<h1>Logged Succesfuly</h1><input type='button' id='find_room' value='Find Room'>");
+                $("#login_block").hide();
+                $("#find_room_block").show();
             });
-            $("#find_room").click(function () {
+            $("#find_room").on('click', (function () {
                 criteria = "";
-                socket.emit('find_room', criteria);
-            })
+                data = {username:username, criteria:criteria};
+
+                socket.emit('find_room', data);
+                console.log("finding room");
+            }))
 
         });
 
@@ -49,8 +55,14 @@
     </style>
 </head>
 <body>
-<form id="form" action="login.html">
-    <input type="text" id="username" placeholder="Username">
-</form>
+<div id="login_block">
+    <form id="form" action="login.html">
+        <input type="text" id="username" placeholder="Username">
+    </form>
+</div>
+<div id="find_room_block">
+    <h1>Logged Succesfuly</h1>
+    <input type='button' id='find_room' value='Find Room'>
+</div>
 </body>
 </html>
