@@ -1,43 +1,131 @@
-<!DOCTYPE hSuccessfully>
+<!DOCTYPE html>
 <head>
     <title>MiniDOOodle</title>
     <meta charset="utf-8">
     <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
     <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="/javascripts/js.cookie.js"></script>
+
     <script>
+        var roomPlayers = new Array();
         $(document).ready(function() {
-            var username;
-            $("#find_room_block").hide();
+            var isInAGame = false;
             var socket  = io.connect();
+            $("#find_room_block").hide();
+            $("#joined_players").hide();
+            var username = readCookie("username");
+            console.log(username);
+            if(username) {
+                socket.emit('login', username);
+            }
+            /*socket.on('no_such_user', function (data) {
+                socket.emit('register', username);
+                socket.emit('login', username);
+            }*/
             $("#form").submit(function (event) {
                 username = $("#username").val();
-                socket.emit('login', username);
+                socket.emit('register', username);
                 event.preventDefault();
+            });
+            socket.on('registration_succ', function () {
+                console.log("registered!");
+                socket.emit('login', username);
             });
             socket.on('logged_in_succ', function () {
                 console.log("logged!");
+                createCookie("username", username, 10);
                 $("#login_block").hide();
                 $("#find_room_block").show();
             });
             $("#find_room").on('click', (function () {
-                criteria = "";
+                criteria = {
+                    roomId:$("#room_id").val()
+                };
                 data = {username:username, criteria:criteria};
+                console.log("data");
+                console.log(data);
 
                 socket.emit('find_room', data);
                 console.log("finding room");
             }))
-
+            socket.on('joined_room', function (data) {
+                console.log("joined!");
+                console.log(data.roomId);
+                //$("#login_block").hide();
+                //$("#find_room_block").show();
+                roomId = data.roomId;
+                roomPlayers = roomPlayers.concat(data.players);
+                console.log("roomId:");
+                console.log(roomId);
+                $("#find_room_block").hide();
+                $("#joined_players").show();
+                refreshRoomPlayers();
+                //$("#joined_players").append();
+                //window.location.replace("http://localhost:3000/?id="+roomId);
+            });
+            $("#start_game").on('click', (function () {
+                //window.location.replace("http://localhost:3000/?id="+roomId);
+                socket.emit('start_game', roomId);
+            }))
+            socket.on('game_started', function (data) {
+                console.log("game Started!");
+                word = data.word;
+                Cookies.set('roomPlayers', JSON.stringify(roomPlayers));
+                Cookies.set('word', word);
+                Cookies.set('roomId', roomId);
+                //var storedAry = JSON.parse($.cookie('roomPlayers')); to use it
+                var hostAndPort = location.protocol+'//'+location.hostname+(location.port ? ':'+location.port: '');
+                window.location.replace(hostAndPort+ "/?id=" + roomId);
+            });
         });
+        function refreshRoomPlayers() {
+            roomPlayers = $.grep(roomPlayers, function(v, k){
+                return $.inArray(v ,roomPlayers) === k;
+            });
+            console.log(roomPlayers);
+            playersH2 = "";
+            for(i=0;i<roomPlayers.length;i++){
+                playersH2 = playersH2 + "<h2>" + roomPlayers[i] + "</h2>";
+            }
+            $("#players").html(playersH2);
+        }
 
+        function createCookie(name, value, days) {
+            var expires;
+
+            if (days) {
+                var date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = "; expires=" + date.toGMTString();
+            } else {
+                expires = "";
+            }
+            document.cookie = encodeURIComponent(name) + "=" + encodeURIComponent(value) + expires + "; path=/";
+        }
+
+        function readCookie(name) {
+            var nameEQ = encodeURIComponent(name) + "=";
+            var ca = document.cookie.split(';');
+            for (var i = 0; i < ca.length; i++) {
+                var c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+            }
+            return null;
+        }
+
+        function eraseCookie(name) {
+            createCookie(name, "", -1);
+        }
     </script>
     <style>
         * {
             margin: 0;
             padding: 0;
         }
-        body, html{
-            width: 100%;
-            height: 100%;
+        body, html {
+            margin: 0 auto;
+            width: 500px;
         }
         #username {
             display: block;
@@ -62,7 +150,14 @@
 </div>
 <div id="find_room_block">
     <h1>Logged Succesfuly</h1>
+    <input type="text" id="room_id" placeholder="Enter room Id or leave empty">
     <input type='button' id='find_room' value='Find Room'>
+</div>
+<div id="joined_players">
+    <h1>Players currently in this room:</h1>
+    <div id="players">
+    </div>
+    <input type='button' id='start_game' value='Start Game'>
 </div>
 </body>
 </html>

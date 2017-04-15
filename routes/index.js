@@ -4,10 +4,17 @@ var path = require('path');
 
 
 
+
 /* GET home page. */
 router.get('/', function(req, res, next) {
     //res.render('index', { title: 'Express' })
     //res.sendFile('drawing/public/HTML/index.html',{ root: '../' });
+
+/*    res.writeHead(301,
+        {Location: 'http://localhost:3000/fs/sfs/htm.html'}
+    );
+    res.end();*/
+
     res.sendFile('index.html', { root: path.join(__dirname, '../public/HTML') });
     /*
     // array of all lines drawn

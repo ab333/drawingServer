@@ -14,6 +14,10 @@ var fs = require('fs'); // File system
  * Get port from environment and store in Express.
  */
 
+app.use(function(req, res, next) {
+    console.log("_____________________________g");
+    next();
+});
 var port = normalizePort(process.env.PORT || '3000');
 app.set('port', port);
 
@@ -39,12 +43,16 @@ var rooms = new Array(); // room: players[], Id, channelId, status, word1, word2
 var wordsPath = "words_list_EN.txt";
 var words = fs.readFileSync(wordsPath).toString().split('\n');
 rooms.push(new Room(0));
+rooms[0].status = "closed";
 // event-handler for new incoming connections
 io.on('connection', function (socket) {
     //console.log(socket.io.engine.id);
     console.log("new connection. socket Id : " + socket.id);
+
     //console.log(getRandomWord());
-    socket.join("0");
+
+
+    //socket.join("0");
     socket.username = 'd7oome';
     // first send the history to the new client
     // NOTE not effective as it will emit every line separately-
@@ -55,6 +63,33 @@ io.on('connection', function (socket) {
      }*/
 
     // add handler for message type "draw_line".
+
+    socket.on('initialize_gameboard', function (data) {
+        roomId = data.roomId;
+        username = data.username;
+        socket.join(roomId);
+        room = getRoomByRoomId(roomId);
+        // Delete the following code!1
+        if(!getPlayerByUsername(username)){
+            player = new Player(username, socket.id);
+            player.status = "logged in";
+            players.push(player);
+        }
+        // END. note: you may delete the next block too.
+        if(!room) {
+            criteria = {roomId: roomId};
+            roomId = findAndCreateRoom(socket, criteria, username);
+            joinRoom(socket, roomId, username);
+            room = getRoomByRoomId(roomId);
+            console.log(roomId);
+        }
+        lineHistory = room.lineHistory;
+        for (var i in lineHistory) {
+            socket.emit('draw_line', { line: lineHistory[i] } );
+        }
+
+    });
+
     socket.on('draw_line', function (data) {
         //find room index
         /*indexes = rooms.map(function(obj, index) {
@@ -65,62 +100,92 @@ io.on('connection', function (socket) {
         roomIndex = indexes[0];*/
         // add received line to history
         // verify if sender is the current turn player
-        rooms[0].lineHistory.push(data.line); //TODO
+
+        roomId = data.roomId;
+        room = getRoomByRoomId(roomId);
+        username = data.username;
+        line = data.line;
+
+        room.lineHistory.push(line);
         // send line to room
-        io.sockets.in("0").emit('draw_line', { line: data.line });
+        io.sockets.in(roomId).emit('draw_line', { line: data.line });
         //console.log(Object.keys(io.sockets.sockets)); // get all socket Ids in all rooms
         //console.log(socket.username);
         //console.log( findClientsSocketByRoomId('0'));// doesn't work
         //console.log(Object.keys(io.sockets.adapter.rooms['1'].sockets));
         //var clients = io.sockets.adapter.rooms['Room Name'].sockets;
-        //console.log(Object.keys( io.sockets.adapter.sids[socket.id] )); //get rooms which socket is currently in
+        console.log(Object.keys( io.sockets.adapter.sids[socket.id] )); //get rooms which socket is currently in
         //console.log(Object.keys( socket.rooms )); //get rooms which socket is currently in
     });
 
-    socket.on('login', function (username) {
+    socket.on('register', function (username) {
         player = new Player(username, socket.id);
         player.status = "logged in";
         players.push(player);
         console.log(players);
-        io.emit('logged_in_succ');
+        socket.emit('registration_succ');
+    });
+    socket.on('login', function (username) {
+        player = getPlayerByUsername(username);
+        if(!player) {
+            socket.emit('no_such_user');
+            return;
+        }
+        player.socketId = socket.id;
+        player.status = "logged in";
+        socket.emit('logged_in_succ');
     });
     //
     socket.on('find_room', function (data) {
-        //TODO player index etc.
         username = data.username;
         criteria = data.criteria;
-        room = findAndJoinRoom(socket, criteria, username); // returns Room object
-        io.emit('joined_room', { room: room });
-        console.log("joined room" + room);
-        console.log(rooms);
+        roomId = findAndCreateRoom(socket, criteria, username); // returns RoomId
 
+        joinRoom(socket, roomId, username);
+        roomPlayersUsername = getRoomPlayersUsername(getRoomByRoomId(roomId));
+        io.emit('joined_room', { roomId: roomId, players: roomPlayersUsername}); // TODO send just to the players in the room
+        socket.join(roomId);
+        console.log("joined room:");
+        console.log(getRoomByRoomId(roomId));
+        console.log("All Rooms");
+        console.log(rooms);
+        logPlayersInRooms();
     });
 
     socket.on('start_game', function (data) {
         // Artists shouldn't know the other word!
-        data.room.status = "started";
-        data.room.word2 = "Spy";
-        word2 = data.room.word2; // copy word2 so we can reset it after nullifying it.
-        data.room.turn = 0; // first player turn; check
+        roomId = data;
+        room = getRoomByRoomId(roomId);
+        if(!room)
+            return;
+        player = getPlayerBySocketId(socket.id);
+        if(!player)
+            return;
+        if(!verifyUsernameInRoom(player.username, roomId))
+            return;
+        room.status = "started";
+        room.word2 = "You Are The Spy!";
+        room.turn = 0; // first player turn; check
         //data.room.players = shuffle(data.room.players); // to define turn order
 
         // getting The Spy and sending him a message
-        spyIndex = getRandomInt(0,data.room.players.length);
-        spySocketId = data.room.players[spyIndex].socketId;
-        socket.broadcast.to(spySocketId).emit('you_are_spy', { room: data.room });
+        spyIndex = getRandomInt(0,room.players.length-1);
+        spySocketId = room.players[spyIndex].socketId;
+        console.log("spy socket id:");
+        console.log(spySocketId);
+        io.to(spySocketId).emit('game_started', { word: room.word2 });
 
         // setting the word and sending it to The Artists
-        data.room.word2 = "unknown";
-        data.room.word1 = getRandomWord();
+        room.word1 = getRandomWord();
         //Sending the actual word to the Artists
-        for(i=0;i<data.room.players.length;i++) {
+        for(i=0;i<room.players.length;i++) {
             if(i==spyIndex)
                 continue;
-            artistSocketId = data.room.players[i].socketId;
-            socket.broadcast.to(artistSocketId).emit('you_are_artist', { room: data.room });
+            artistSocketId = room.players[i].socketId;
+            console.log("artist socket id:");
+            console.log(artistSocketId);
+            io.to(artistSocketId).emit('game_started', { word: room.word1 });
         }
-        data.room.word2 = word2;
-        rooms.push(data.room);
     });
 
     socket.on('end_my_turn', function (data) {
@@ -139,6 +204,7 @@ io.on('connection', function (socket) {
  * My Functions
  */
 
+
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -148,31 +214,64 @@ function getRandomWord() {
     return words[wordIndex];
 }
 
-function findAndJoinRoom(socket, criteria, username) {
-    //TODO must get room index instead of value
+function findAndCreateRoom(socket, criteria, username) {
+    if(criteria.roomId) {
+        console.log("join Sepicific room");
+        return findOrCreateSpecificRoom(socket, criteria, username);
+    }
     player = getPlayerByUsername(username);
-    var result = rooms.filter(function( obj ) {
+    console.log("username");
+    console.log(username);
+    console.log("player:");
+    console.log(player);
+
+    if(!player)
+        return;
+    var availableRooms = rooms.filter(function( obj ) {
         return obj.status == "open" && obj.type == "public";
     });
-    if(result.length == 0) {
+    if(availableRooms.length == 0) {
         room = new Room(getRandomInt(1,10000));
-        room.players.push(player);
-        room.numOfPlayers = 1;
-        socket.join(room.id);
-
+        rooms.push(room);
     }
     else {
-        //access result[0]
-        room = result[0];
-        room.players.push(player);
-        //add numOfPlayers limit
-        room.numOfPlayers++;
-        socket.join(room.id);
-
+        room = availableRooms[0];
     }
+    return room.id;
+}
+
+function findOrCreateSpecificRoom(socket, criteria, username) {
+    // this function needs to check if the room is public and not started yet
+    roomId = criteria.roomId;
+    console.log(roomId);
+    player = getPlayerByUsername(username);
+    if(!player)
+        return;
+    var availableRooms = rooms.filter(function( obj ) {
+        return obj.status == "open" && obj.type == "public" && obj.id == roomId;
+    });
+    if(availableRooms.length == 0) {
+        room = new Room(roomId);
+        rooms.push(room);
+    }
+    else {
+        room = availableRooms[0];
+    }
+    return room.id;
+}
+
+function joinRoom(socket, roomId, username) {
+    if(verifyUsernameInRoom(username, roomId))
+        return false;
+    room = getRoomByRoomId(roomId);
+    player = getPlayerByUsername(username);
+    room.players.push(player);
+    room.numOfPlayers++;
+    socket.join(room.id);
     player.currentRoom = room.id;
     player.status = "in a room";
-    return room;
+    return true;
+
 }
 
 function getPlayerByUsername(username) {
@@ -195,7 +294,7 @@ function getRoomByRoomId(roomId) {
     if(result.length == 0)
         return null;
     else if(result.length == 1)
-        return resutl[0];
+        return result[0];
     else
         return null;
 }
@@ -207,7 +306,7 @@ function getPlayerBySocketId(socketId) {
     if(result.length == 0)
         return null;
     else if(result.length == 1)
-        return resutl[0];
+        return result[0];
     else
         return null;
 }
@@ -219,9 +318,16 @@ function getRoomBySocketId(socketId) {
     if(result.length == 0)
         return null;
     else if(result.length == 1)
-        return resutl[0];
+        return result[0];
     else
         return null;
+}
+
+function getRoomPlayersUsername(room) {
+    var usernames = new Array();
+    for(i=0;i<room.players.length;i++)
+        usernames.push(room.players[i].username);
+    return usernames;
 }
 
 function verifyUsernameSocketOwner(username, socket) {
@@ -237,7 +343,7 @@ function verifyUsernameSocketOwner(username, socket) {
 }
 
 function verifyUsernameInRoom(username, roomId) {
-    room = getRoomBySocketId();
+    room = getRoomByRoomId(roomId);
     var result = room.players.filter(function( player ) {
         return player.username == username;
     });
@@ -259,6 +365,18 @@ function verifyUsernameCurrentTurn(username, roomId) {
         return false;
 }
 
+function logPlayersInRooms() {
+    playersString = "";
+    for(room in rooms) {
+        playersString = "";
+        playersString = "Players in room ";
+        playersString = playersString + rooms[room].id + " are: ";
+        for(player in rooms[room].players) {
+            playersString = playersString + rooms[room].players[player].username     +", ";
+        }
+        console.log(playersString);
+    }
+}
 
 
 function Player (username, socketId) {
@@ -287,6 +405,7 @@ function Room (id) {
     this.numOfPlayers = "";
     this.turnOrder = "";
     this.scoreLimit = "";
+    this.hostPlayer = "";
 }
 
 Room.prototype.getCurrentTurnUsername = function() {
