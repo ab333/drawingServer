@@ -40,7 +40,7 @@ server.on('listening', onListening);
 var lineHistory = new Array();
 var players = new Array(); // player: username, socketId, status, currentRoom
 var rooms = new Array(); // room: players[], Id, channelId, status, word1, word2, spy, currentTurn, turnOrder, numOfPlayers, lineHistory
-var wordsPath = "words_list_EN.txt";
+var wordsPath = "words_list_AR.txt";
 var words = fs.readFileSync(wordsPath).toString().split('\n');
 rooms.push(new Room(0));
 rooms[0].status = "closed";
