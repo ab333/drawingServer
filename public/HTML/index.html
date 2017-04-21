@@ -77,8 +77,9 @@
                 var touch = e.touches[0]; // Get the information for finger #1
                 mouse.pos.x = (touch.pageX - touch.target.offsetLeft) / width;
                 mouse.pos.y = (touch.pageY - touch.target.offsetTop) / height;
-                mouse.move = true;e.preventDefault();
-                mouse.click = false;e.preventDefault();
+                //mouse.move = true;
+                mouse.click = false;
+                e.preventDefault();
             });
 
             /*function sketchpad_touchEnd(e) {
@@ -161,12 +162,7 @@
             // draw line received from server
             socket.on('draw_line', function (data) {
                 var line = data.line;
-                context.beginPath();
-                context.moveTo(line[0].x * width, line[0].y * height);
-                context.lineTo(line[1].x * width, line[1].y * height);
-                context.lineWidth = 3;
-                context.stroke();
-
+                drawLine(line);
             });
 
             // main loop, running every 25ms
@@ -175,15 +171,27 @@
                 if (mouse.click && mouse.move && mouse.pos_prev) {
                     // send line to to the server
                     //room.Id = 0;
-                    socket.emit('draw_line', { line: [ mouse.pos, mouse.pos_prev ],roomId:roomId, username:username });
+                    line = [mouse.pos, mouse.pos_prev];
+                    drawLine(line);
+                    socket.emit('draw_line', { line: line,roomId:roomId, username:username });
                     mouse.move = false;
                 }
                 mouse.pos_prev = {x: mouse.pos.x, y: mouse.pos.y};
-                setTimeout(mainLoop, 25);
+                setTimeout(mainLoop, 15);
             }
             mainLoop();
 
+            function drawLine(line) {
+                context.beginPath();
+                context.moveTo(line[0].x * width, line[0].y * height);
+                context.lineTo(line[1].x * width, line[1].y * height);
+                context.lineWidth = 15;
+                context.stroke();
+
+            }
         });
+
+
 
         function setupControlers(word, players) {
             $('#controlers').append('####' + word + '####       ');
@@ -220,6 +228,7 @@
         * {
             margin: 0;
             padding: 0;
+            font-size: 30px;
         }
         body, html{
             width: 100%;
@@ -236,7 +245,7 @@
 </head>
 <body>
 <div id="controlers">
-
+<a href="html/login.html">عودة</a>
 </div>
 
 <canvas id="drawing"></canvas>

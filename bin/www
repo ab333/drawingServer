@@ -43,7 +43,18 @@ var rooms = new Array(); // room: players[], Id, channelId, status, word1, word2
 var wordsPath = "words_list_AR.txt";
 var words = fs.readFileSync(wordsPath).toString().split('\n');
 rooms.push(new Room(0));
-rooms[0].status = "closed";
+rooms.push(new Room(11));
+rooms.push(new Room(22));
+rooms.push(new Room(33));
+rooms.push(new Room(44));
+rooms.push(new Room(55));
+rooms.push(new Room(66));
+rooms.push(new Room(77));
+rooms.push(new Room(9));
+rooms.push(new Room(8));
+rooms.push(new Room(7));
+rooms.push(new Room(6));
+//rooms[0].status = "closed";
 // event-handler for new incoming connections
 io.on('connection', function (socket) {
     //console.log(socket.io.engine.id);
@@ -133,14 +144,16 @@ io.on('connection', function (socket) {
         }
         player.socketId = socket.id;
         player.status = "logged in";
-        socket.emit('logged_in_succ');
+        openRooms = getOpenRooms();
+        socket.emit('logged_in_succ', {rooms:openRooms, test:'testString'});
+        // TODO instead of logged in succ make it refresh rooms
+        // TODO add prev line to on(join room), on(create room)
     });
     //
     socket.on('find_room', function (data) {
         username = data.username;
         criteria = data.criteria;
         roomId = findAndCreateRoom(socket, criteria, username); // returns RoomId
-
         joinRoom(socket, roomId, username);
         roomPlayersUsername = getRoomPlayersUsername(getRoomByRoomId(roomId));
         io.emit('joined_room', { roomId: roomId, players: roomPlayersUsername}); // TODO send just to the players in the room
@@ -212,6 +225,13 @@ function getRandomInt(min, max) {
 function getRandomWord() {
     wordIndex = getRandomInt(0, words.length);
     return words[wordIndex];
+}
+
+function getOpenRooms() {
+    var openRooms = rooms.filter(function( obj ) {
+        return obj.status == "open" && obj.type == "public";
+    });
+    return openRooms;
 }
 
 function findAndCreateRoom(socket, criteria, username) {
@@ -408,7 +428,7 @@ function Room (id) {
     this.word2 = "";
     this.spyPlayerIndex = "";
     this.currentTurn = "";
-    this.numOfPlayers = "";
+    this.numOfPlayers = 0;
     this.turnOrder = "";
     this.scoreLimit = "";
     this.hostPlayer = "";
