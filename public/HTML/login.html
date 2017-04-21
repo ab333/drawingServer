@@ -69,7 +69,11 @@
             }))
             socket.on('game_started', function (data) {
                 console.log("game Started!");
-                word = data.word;
+                newRoomId = data.roomId;
+                word = data.word;00.
+
+                //if(roomId != newRoomId)
+                    //return;
                 Cookies.set('roomPlayers', JSON.stringify(roomPlayers));
                 Cookies.set('word', word);
                 Cookies.set('roomId', roomId);

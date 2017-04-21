@@ -173,7 +173,7 @@ io.on('connection', function (socket) {
         spySocketId = room.players[spyIndex].socketId;
         console.log("spy socket id:");
         console.log(spySocketId);
-        io.to(spySocketId).emit('game_started', { word: room.word2 });
+        io.to(spySocketId).emit('game_started', { word: room.word2, roomId:roomId });
 
         // setting the word and sending it to The Artists
         room.word1 = getRandomWord();
@@ -184,7 +184,7 @@ io.on('connection', function (socket) {
             artistSocketId = room.players[i].socketId;
             console.log("artist socket id:");
             console.log(artistSocketId);
-            io.to(artistSocketId).emit('game_started', { word: room.word1 });
+            io.to(artistSocketId).emit('game_started', { word: room.word1, roomId:roomId });
         }
     });
 
@@ -291,20 +291,26 @@ function getRoomByRoomId(roomId) {
     var result = rooms.filter(function( room ) {
         return room.id == roomId;
     });
-    if(result.length == 0)
+    if(result.length == 0) {
+        console.warn("No Room with that id");
         return null;
+    }
     else if(result.length == 1)
         return result[0];
-    else
+    else {
+        console.warn("Many Rooms with that id!");
         return null;
+    }
 }
 
 function getPlayerBySocketId(socketId) {
     var result = players.filter(function( player ) {
         return player.socketId == socketId;
     });
-    if(result.length == 0)
+    if(result.length == 0) {
+        console.warn("No user with that socketId");
         return null;
+    }
     else if(result.length == 1)
         return result[0];
     else
